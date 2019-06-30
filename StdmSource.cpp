@@ -15,10 +15,9 @@ StdmSource::StdmSource(const std::string &inputLine)
 {
     std::istringstream input(inputLine);
 
-    if (!((input >> name) && (name.back() == ':'))) {
+    if (!std::getline(input, name, ':') && (name.back() != ':')) {
         throw std::invalid_argument("channel name not found");
     }
-    name.pop_back(); // remove ':' from name
 
     unsigned long prevEnd = 0;
     std::string dataBlockSpec;
@@ -95,7 +94,7 @@ StdmSource::select(unsigned long startTime,
     if (cursor != blocks.cend()) {
         // while data remains...
         const DataBlock& block = *cursor;
-        if (startTime > block.startTime) {
+        if (startTime >= block.startTime) {
             // if not idle
             if (endTime < block.endTime) {
                 throw std::runtime_error("time slice is too small");
@@ -119,7 +118,7 @@ StdmSource::makeDataBlock(const std::string &spec)
         throwInvalidDataBlockField("start and/or end time", spec);
     }
     getDataBlockField(input, "data", spec, &block.data);
-    if (input) {
+    if (!input.eof()) {
         throwInvalidDataBlockField("extra", spec);
     }
     return block;

@@ -5,6 +5,7 @@
 #include <utility>
 #include <iterator>
 #include <algorithm>
+#include <sstream>
 
 StdmMux::StdmMux(std::istream &input,
                  std::ostream &debug)
@@ -31,14 +32,17 @@ StdmMux::StdmMux(std::istream &input,
 
     addressBits = static_cast<std::size_t>(std::log2(frameSize)) + 1;
 
-    totalFrames = (endTime - currentTime) / timeStep;
+    double exactTotalFrames = static_cast<double>(endTime - currentTime)
+                            / static_cast<double>(timeStep);
+
+    totalFrames = static_cast<std::size_t>(std::ceil(exactTotalFrames));
 
     debug << "average transmission rate: " << averageTransmissionRate
           << " data blocks per second"
              "\ndata size: " << dataSize << " bits per data block"
              "\nframe size: " << frameSize << " data blocks per frame"
              "\naddress bits: " << addressBits << " bits per subframe"
-             "\ntime step: " << timeStep << " seconds"
+             "\ntime step: " << timeStep << " second(s)"
              "\ntotal frames: " << totalFrames
           << std::endl;
 }
@@ -81,11 +85,12 @@ StdmMux::readSources(std::istream &input,
         }
 
         unsigned long sourceStartTime        = source.getStartTime();
-        unsigned long sourceEndTime          = source.getStartTime();
+        unsigned long sourceEndTime          = source.getEndTime();
         double sourceAverageTransmissionRate = source.averageTransmissionRate();
 
         debug << "startTime="                 << sourceStartTime
               << ", endTime="                 << sourceEndTime
+              << ", dataBlocks="              << source.size()
               << ", averageTransmissionRate=" << sourceAverageTransmissionRate
               << std::endl;
 
@@ -101,44 +106,41 @@ bool
 StdmMux::writeFrame(std::ostream &output,
                     std::ostream &debug)
 {
-
-    if (currentTime >= endTime) {
+    if ((currentTime >= endTime) && backlog.empty()) {
         debug << "DONE!" << std::endl;
+        checkForDataInSources(debug);
         return false;
     }
 
-    writeStartOfFrame("frame", '=', frame, totalFrames, debug);
+    writeStartOfFrame("frame", '=', frame, totalFrames, currentTime, debug);
     debug << currentTime << ": "
           << backlog.size() << " data blocks in the backlog"
           << std::endl;
 
     updateBacklog();
 
-    writeStartOfFrame("frame", '=', frame, totalFrames, output);
-    output << "time: " << currentTime << std::endl;
+    writeStartOfFrame("frame", '=', frame, totalFrames, currentTime, output);
     output << "SF (1 bit)" << std::endl;
 
     for (unsigned long subframe = 1; subframe <= frameSize; ++subframe) {
-        writeStartOfFrame("subframe", '-', subframe, frameSize, output);
+        writeStartOfFrame("subframe", '-', subframe, frameSize, currentTime, output);
 
-        unsigned long source = 0;
+        unsigned long sourceAddress = 0;
+        std::string source = "NONE";
         std::string data;
 
         if (!backlog.empty()) {
             const BacklogItem& item = backlog.top();
-            source = item.source;
-            data   = item.data;
+            sourceAddress = item.source;
+            source        = sources[sourceAddress - 1].getName();
+            data          = item.data;
             backlog.pop();
         }
 
-        writeSubframe(source, data, output);
-
-        writeEndOfFrame(  "subframe", '-', subframe, frameSize, output);
+        writeSubframe(sourceAddress, source, data, output);
     }
 
     output << "EF (1 bit)" << std::endl;
-    writeEndOfFrame(  "frame", '=', frame, totalFrames, output);
-    writeEndOfFrame(  "frame", '=', frame, totalFrames, debug);
 
     ++frame;
     return true;
@@ -165,42 +167,57 @@ StdmMux::updateBacklog()
 }
 
 void
-StdmMux::writeSubframe(unsigned long      source,
+StdmMux::writeSubframe(unsigned long      sourceAddress,
+                       const std::string &source,
                        const std::string &data,
                        std::ostream      &output)
 {
-    output << "address: " << source << '(' << addressBits << " bits)"
-              "\ndata: \"" << data << "\" ( " << dataSize << " bits)"
+    output << "address: " << sourceAddress << '/' << source
+                          << " (" << addressBits << " bits)"
+              "\ndata: \"" << data << "\" (" << dataSize << " bits)"
            << std::endl;
 }
 
 void
 StdmMux::writeStartOfFrame(const std::string &frameType,
-                           char               delimiter,
+                           char               lineChar,
                            unsigned long      number,
                            unsigned long      total,
+                           unsigned long      currentTime,
                            std::ostream      &output)
 {
-    writeDelimiter(delimiter, output);
-    output << "start of " << frameType << ' ' << number << '/' << total
-           << std::endl;
+    static const std::size_t LINE_WIDTH = 80;
+
+    std::ostringstream textStream;
+    textStream << "start of " << frameType << ' ' << number << '/' << total
+               << " (time=" << currentTime << ')';
+    std::string text = textStream.str();
+
+    std::size_t lengthLine       = 4;
+    std::size_t lengthSpacedText = text.length() + 1;
+
+    if ((lengthLine + lengthSpacedText) < LINE_WIDTH) {
+        lengthLine = (LINE_WIDTH - lengthSpacedText);
+    }
+
+    std::fill_n(std::ostream_iterator<char>(output), lengthLine, lineChar);
+    output << ' ' << text << std::endl;
 }
 
 void
-StdmMux::writeEndOfFrame(const std::string &frameType,
-                         char               delimiter,
-                         unsigned long      number,
-                         unsigned long      total,
-                         std::ostream      &output)
+StdmMux::checkForDataInSources(std::ostream &debug)
 {
-    output << "end of " << frameType << ' ' << number << '/' << total
-           << std::endl;
-    writeDelimiter(delimiter, output);
-}
+    bool sourcesHaveData = false;
+    for (const StdmSource &source : sources) {
+        if (!source.empty()) {
+            debug << "ERROR: " << source.size()
+                  << " entries remain in source " << source.getName()
+                  << std::endl;
+            sourcesHaveData = true;
+        }
+    }
 
-void
-StdmMux::writeDelimiter(char delimiter, std::ostream &output)
-{
-    std::fill_n(std::ostream_iterator<char>(output), 80, delimiter);
-    output << std::endl;
+    if (sourcesHaveData) {
+        throw std::runtime_error("data remains in sources");
+    }
 }

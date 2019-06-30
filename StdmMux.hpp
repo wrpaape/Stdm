@@ -36,26 +36,21 @@ private:
     updateBacklog();
 
     void
-    writeSubframe(unsigned long      source,
+    writeSubframe(unsigned long      sourceAddress,
+                  const std::string &source,
                   const std::string &data,
                   std::ostream      &output);
 
     static void
     writeStartOfFrame(const std::string &frameType,
-                      char               delimiter,
+                      char               lineChar,
                       unsigned long      number,
                       unsigned long      total,
+                      unsigned long      currentTime,
                       std::ostream      &output);
 
-    static void
-    writeEndOfFrame(const std::string &frameType,
-                    char               delimiter,
-                    unsigned long      number,
-                    unsigned long      total,
-                    std::ostream      &output);
-
-    static void
-    writeDelimiter(char delimiter, std::ostream &output);
+    void
+    checkForDataInSources(std::ostream &debug);
 
     unsigned long                    currentTime;
     unsigned long                    endTime;
@@ -75,11 +70,11 @@ operator<(const StdmMux::BacklogItem& lhs,
 {
     if (lhs.source != rhs.source) {
         // lower source number is higher priority
-        return lhs.source < rhs.source;
+        return lhs.source > rhs.source;
     }
 
     // prioritize items that arrived earlier
-    return lhs.timestamp < rhs.timestamp;
+    return lhs.timestamp > rhs.timestamp;
 }
 
 #endif // ifndef STDM_MUX_HPP

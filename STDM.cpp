@@ -27,10 +27,11 @@ main(int   argc,
     
     const char *inputFile = argv[1];
     std::ifstream input(inputFile);
+    std::ofstream debug("STDM-log.txt");
 
-    StdmMux mux(input, std::cerr);
+    StdmMux mux(input, debug);
 
-    while (mux.writeFrame(std::cout, std::cerr))
+    while (mux.writeFrame(std::cout, debug))
         ; // spin until data has expired
 
     return 0;

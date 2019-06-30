@@ -11,7 +11,10 @@ public:
     StdmSource(const std::string &inputLine);
 
     bool
-    empty() const { return blocks.empty(); }
+    empty() const { return cursor == blocks.cend(); }
+
+    std::size_t
+    size() const { return blocks.cend() - cursor; }
 
     const std::string &
     getName() const { return name; }
