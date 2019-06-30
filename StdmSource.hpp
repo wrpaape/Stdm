@@ -19,6 +19,9 @@ public:
     unsigned long
     getDataDuration() const { return dataDuration; }
 
+    std::size_t
+    getDataSize() const { return dataSize; }
+
     unsigned long
     getStartTime() const;
 
@@ -43,7 +46,7 @@ private:
     static DataBlock
     makeDataBlock(const std::string &spec);
 
-    template<typename FieldType> static DataBlock
+    template<typename FieldType> static void
     getDataBlockField(std::istream      &input,
                       const std::string &fieldName,
                       const std::string &spec,
@@ -57,6 +60,7 @@ private:
     std::vector<DataBlock>::const_iterator cursor;
     std::vector<DataBlock>                 blocks;
     unsigned long                          dataDuration;
+    std::size_t                            dataSize;
 }; // class StdmSource
 
 #endif // ifndef STDM_SOURCE_HPP

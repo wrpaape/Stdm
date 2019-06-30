@@ -1,5 +1,6 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -O0 -g
+CXXFLAGS = -std=c++11 -O0 -g -Wall
+LDFLAGS = -lm
 
 .PHONY: all zip clean clean-all
 
@@ -9,7 +10,7 @@ zip: StdmMux.h StdmMux.cpp Makefile
 	zip William_Paape_lab4.zip $^
 
 STDM: STDM.o StdmMux.o StdmSource.o
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $^ $(LDFLAGS) -o $@
 
 STDM.o: STDM.cpp StdmMux.hpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

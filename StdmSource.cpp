@@ -11,6 +11,7 @@ StdmSource::StdmSource(const std::string &inputLine)
     , cursor()
     , blocks()
     , dataDuration()
+    , dataSize()
 {
     std::istringstream input(inputLine);
 
@@ -30,13 +31,24 @@ StdmSource::StdmSource(const std::string &inputLine)
             );
         }
         unsigned long duration = block.endTime - block.startTime;
-        if ((dataDuration != 0) && (duration != dataDuration)) {
-            throw std::invalid_argument(
-                 "data blocks provided with overlapping or out of order time"
-                 "stamps"
-            );
+        std::size_t size = block.data.length()
+                         * std::numeric_limits<std::string::value_type>::digits;
+        if (dataDuration != 0) {
+            if (duration != dataDuration) {
+                throw std::invalid_argument(
+                     "data blocks provided with overlapping or out of order"
+                     "time stamps"
+                );
+            }
+            if (size != dataSize) {
+                throw std::invalid_argument(
+                     "data blocks provided with multiple data sizes"
+                );
+            }
         } else {
-            dataDuration = duration; // initial pass
+            // initial pass - set the data properties
+            dataDuration = duration;
+            dataSize     = size;
         }
         prevEnd = block.endTime;
         blocks.emplace_back(std::move(block));
@@ -70,10 +82,8 @@ StdmSource::averageTransmissionRate() const
         totalTime   += (block.endTime - block.startTime);
         totalLength += block.data.length();
     }
-    std::size_t totalBits = totalLength
-                          * std::numeric_limits<std::string::value_type>::digits;
 
-    return static_cast<double>(totalBits) / static_cast<double>(totalTime);
+    return static_cast<double>(totalLength) / static_cast<double>(totalTime);
 }
 
 std::string
@@ -115,7 +125,7 @@ StdmSource::makeDataBlock(const std::string &spec)
     return block;
 }
 
-template<typename FieldType> StdmSource::DataBlock
+template<typename FieldType> void
 StdmSource::getDataBlockField(std::istream      &input,
                               const std::string &fieldName,
                               const std::string &spec,

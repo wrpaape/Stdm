@@ -30,5 +30,8 @@ main(int   argc,
 
     StdmMux mux(input, std::cerr);
 
+    while (mux.writeFrame(std::cout, std::cerr))
+        ; // spin until data has expired
+
     return 0;
 }

@@ -13,7 +13,8 @@ public:
             std::ostream &debug);
 
     bool
-    writeFrame(std::ostream &output);
+    writeFrame(std::ostream &output,
+               std::ostream &debug);
 
 private:
     struct BacklogItem
@@ -32,14 +33,38 @@ private:
                 std::ostream &debug);
 
     void
-    writeSubframe(std::ostream      &output,
-                  unsigned long      source,
-                  const std::string &data);
+    updateBacklog();
+
+    void
+    writeSubframe(unsigned long      source,
+                  const std::string &data,
+                  std::ostream      &output);
+
+    static void
+    writeStartOfFrame(const std::string &frameType,
+                      char               delimiter,
+                      unsigned long      number,
+                      unsigned long      total,
+                      std::ostream      &output);
+
+    static void
+    writeEndOfFrame(const std::string &frameType,
+                    char               delimiter,
+                    unsigned long      number,
+                    unsigned long      total,
+                    std::ostream      &output);
+
+    static void
+    writeDelimiter(char delimiter, std::ostream &output);
 
     unsigned long                    currentTime;
     unsigned long                    endTime;
+    unsigned long                    frame;
+    unsigned long                    totalFrames;
     unsigned long                    timeStep;
     std::size_t                      frameSize;
+    std::size_t                      dataSize;
+    std::size_t                      addressBits;
     std::priority_queue<BacklogItem> backlog;
     std::vector<StdmSource>          sources;
 }; // class StdmMux
