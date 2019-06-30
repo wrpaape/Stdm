@@ -7,6 +7,10 @@
 
 
 StdmSource::StdmSource(const std::string &inputLine)
+    : name()
+    , cursor()
+    , blocks()
+    , dataDuration()
 {
     std::istringstream input(inputLine);
 
@@ -25,6 +29,15 @@ StdmSource::StdmSource(const std::string &inputLine)
                  "stamps"
             );
         }
+        unsigned long duration = block.endTime - block.startTime;
+        if ((dataDuration != 0) && (duration != dataDuration)) {
+            throw std::invalid_argument(
+                 "data blocks provided with overlapping or out of order time"
+                 "stamps"
+            );
+        } else {
+            dataDuration = duration; // initial pass
+        }
         prevEnd = block.endTime;
         blocks.emplace_back(std::move(block));
     }
@@ -33,19 +46,19 @@ StdmSource::StdmSource(const std::string &inputLine)
 }
 
 unsigned long
-StdmSource::startTime()
+StdmSource::getStartTime() const
 {
     return blocks.empty() ? 0 : blocks.front().startTime;
 }
 
 unsigned long
-StdmSource::endTime()
+StdmSource::getEndTime() const
 {
     return blocks.empty() ? 0 : blocks.back().endTime;
 }
 
 double
-StdmSource::averageTransmissionRate()
+StdmSource::averageTransmissionRate() const
 {
     if (blocks.empty()) {
         return 0.0;

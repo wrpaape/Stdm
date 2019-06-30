@@ -10,14 +10,23 @@ class StdmSource
 public:
     StdmSource(const std::string &inputLine);
 
-    unsigned long
-    startTime();
+    bool
+    empty() const { return blocks.empty(); }
+
+    const std::string &
+    getName() const { return name; }
 
     unsigned long
-    endTime();
+    getDataDuration() const { return dataDuration; }
+
+    unsigned long
+    getStartTime() const;
+
+    unsigned long
+    getEndTime() const;
 
     double
-    averageTransmissionRate();
+    averageTransmissionRate() const;
 
     std::string
     select(unsigned long startTime,
@@ -45,8 +54,9 @@ private:
                                const std::string &spec);
 
     std::string                            name;
-    std::vector<DataBlock>                 blocks;
     std::vector<DataBlock>::const_iterator cursor;
+    std::vector<DataBlock>                 blocks;
+    unsigned long                          dataDuration;
 }; // class StdmSource
 
 #endif // ifndef STDM_SOURCE_HPP

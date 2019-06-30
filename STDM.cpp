@@ -28,7 +28,7 @@ main(int   argc,
     const char *inputFile = argv[1];
     std::ifstream input(inputFile);
 
-    StdmMux mux(input);
+    StdmMux mux(input, std::cerr);
 
     return 0;
 }
