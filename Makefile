@@ -8,13 +8,16 @@ all: STDM
 zip: StdmMux.h StdmMux.cpp Makefile
 	zip William_Paape_lab4.zip $^
 
-STDM: STDM.o StdmMux.o
+STDM: STDM.o StdmMux.o StdmSource.o
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-STDM.o: STDM.cpp StdmMux.h
+STDM.o: STDM.cpp StdmMux.hpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-StdmMux.o: StdmMux.cpp StdmMux.h
+StdmMux.o: StdmMux.cpp StdmMux.hpp StdmSource.hpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+StdmSource.o: StdmSource.cpp StdmSource.hpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:

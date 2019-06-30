@@ -1,4 +1,4 @@
-#include "StdmMux.h"
+#include "StdmMux.hpp"
 
 StdmMux::StdmMux(std::istream& input)
 {

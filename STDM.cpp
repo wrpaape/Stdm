@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include "StdmMux.h"
+#include "StdmMux.hpp"
 
 namespace {
 
