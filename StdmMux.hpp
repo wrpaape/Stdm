@@ -32,7 +32,7 @@ private:
     readSources(std::istream &input,
                 std::ostream &debug);
 
-    void
+    std::size_t
     updateBacklog();
 
     std::size_t
@@ -45,9 +45,9 @@ private:
                   std::ostream      &output);
 
     void
-    writeStartOfFrame(const std::string &frameType,
-                      char               lineChar,
+    writeStartOfBlock(const std::string &leader,
                       unsigned long      number,
+                      char               lineChar,
                       std::ostream      &output);
 
     void
@@ -58,6 +58,7 @@ private:
     unsigned long                    frame;
     unsigned long                    timeStep;
     std::size_t                      frameSize;
+    std::size_t                      dataSize;
     std::size_t                      dataBits;
     std::size_t                      addressBits;
     std::priority_queue<BacklogItem> backlog;

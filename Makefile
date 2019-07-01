@@ -6,7 +6,7 @@ LDFLAGS = -lm
 
 all: STDM
 
-zip: StdmMux.h StdmMux.cpp Makefile
+zip: STDM.cpp StdmMux.cpp StdmMux.hpp StdmSource.cpp StdmSource.hpp Makefile readme.txt
 	zip William_Paape_lab4.zip $^
 
 STDM: STDM.o StdmMux.o StdmSource.o

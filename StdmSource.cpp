@@ -1,7 +1,6 @@
 #include "StdmSource.hpp"
 
 #include <sstream>
-#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -11,7 +10,7 @@ StdmSource::StdmSource(const std::string &inputLine)
     , cursor()
     , blocks()
     , dataDuration()
-    , dataBits()
+    , dataSize()
 {
     std::istringstream input(inputLine);
 
@@ -30,8 +29,7 @@ StdmSource::StdmSource(const std::string &inputLine)
             );
         }
         unsigned long duration = block.endTime - block.startTime;
-        std::size_t bits = block.data.length()
-                         * std::numeric_limits<std::string::value_type>::digits;
+        std::size_t size = block.data.length();
         if (dataDuration != 0) {
             if (duration != dataDuration) {
                 throw std::invalid_argument(
@@ -39,7 +37,7 @@ StdmSource::StdmSource(const std::string &inputLine)
                      "time stamps"
                 );
             }
-            if (bits != dataBits) {
+            if (size != dataSize) {
                 throw std::invalid_argument(
                      "data blocks provided with multiple data sizes"
                 );
@@ -47,7 +45,7 @@ StdmSource::StdmSource(const std::string &inputLine)
         } else {
             // initial pass - set the data properties
             dataDuration = duration;
-            dataBits     = bits;
+            dataSize     = size;
         }
         prevEnd = block.endTime;
         blocks.emplace_back(std::move(block));

@@ -23,7 +23,7 @@ public:
     getDataDuration() const { return dataDuration; }
 
     std::size_t
-    getDataBits() const { return dataBits; }
+    getDataSize() const { return dataSize; }
 
     unsigned long
     getStartTime() const;
@@ -63,7 +63,7 @@ private:
     std::vector<DataBlock>::const_iterator cursor;
     std::vector<DataBlock>                 blocks;
     unsigned long                          dataDuration;
-    std::size_t                            dataBits;
+    std::size_t                            dataSize;
 }; // class StdmSource
 
 #endif // ifndef STDM_SOURCE_HPP
