@@ -19,7 +19,7 @@ public:
 private:
     struct BacklogItem
     {
-        unsigned long source;
+        unsigned long sourceAddress;
         unsigned long timestamp;
         std::string   data;
 
@@ -28,12 +28,15 @@ private:
     operator<(const BacklogItem& lhs,
               const BacklogItem& rhs);
 
-    double
+    std::size_t
     readSources(std::istream &input,
                 std::ostream &debug);
 
     void
     updateBacklog();
+
+    std::size_t
+    writeSubframes(std::ostream &output);
 
     void
     writeSubframe(unsigned long      sourceAddress,
@@ -41,12 +44,10 @@ private:
                   const std::string &data,
                   std::ostream      &output);
 
-    static void
+    void
     writeStartOfFrame(const std::string &frameType,
                       char               lineChar,
                       unsigned long      number,
-                      unsigned long      total,
-                      unsigned long      currentTime,
                       std::ostream      &output);
 
     void
@@ -55,10 +56,9 @@ private:
     unsigned long                    currentTime;
     unsigned long                    endTime;
     unsigned long                    frame;
-    unsigned long                    totalFrames;
     unsigned long                    timeStep;
     std::size_t                      frameSize;
-    std::size_t                      dataSize;
+    std::size_t                      dataBits;
     std::size_t                      addressBits;
     std::priority_queue<BacklogItem> backlog;
     std::vector<StdmSource>          sources;
@@ -68,13 +68,13 @@ inline bool
 operator<(const StdmMux::BacklogItem& lhs,
           const StdmMux::BacklogItem& rhs)
 {
-    if (lhs.source != rhs.source) {
-        // lower source number is higher priority
-        return lhs.source > rhs.source;
+    if (lhs.timestamp != rhs.timestamp) {
+        // prioritize items that arrived earlier
+        return lhs.timestamp > rhs.timestamp;
     }
 
-    // prioritize items that arrived earlier
-    return lhs.timestamp > rhs.timestamp;
+    // lower source number is higher priority
+    return lhs.sourceAddress > rhs.sourceAddress;
 }
 
 #endif // ifndef STDM_MUX_HPP

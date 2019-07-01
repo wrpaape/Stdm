@@ -12,52 +12,59 @@ StdmMux::StdmMux(std::istream &input,
     : currentTime()
     , endTime()
     , frame(1)
-    , totalFrames()
     , timeStep()
     , frameSize()
-    , dataSize()
+    , dataBits()
     , addressBits()
     , backlog()
     , sources()
 {
-    double totalAverageTransmissionRate = readSources(input, debug);
-    if (sources.empty()) {
-        debug << "no data transmitted from configured sources" << std::endl;
+    std::size_t totalDataBlocks = readSources(input, debug);
+    if (totalDataBlocks == 0) {
+        debug << "\nno data transmitted from configured sources" << std::endl;
+        return;
     }
-    double averageTransmissionRate = totalAverageTransmissionRate
-                                   / static_cast<double>(sources.size());
+    double totalTime = static_cast<double>(endTime - currentTime);
+
+    double averageTransmissionRate = static_cast<double>(totalDataBlocks)
+                                   / totalTime;
     double averageStepBlocks = averageTransmissionRate
                              * static_cast<double>(timeStep);
-    frameSize = static_cast<std::size_t>(std::round(averageStepBlocks));
+    frameSize = static_cast<std::size_t>(std::ceil(averageStepBlocks));
 
     addressBits = static_cast<std::size_t>(std::log2(frameSize)) + 1;
 
-    double exactTotalFrames = static_cast<double>(endTime - currentTime)
-                            / static_cast<double>(timeStep);
+    std::size_t subframeBits = dataBits + addressBits;
+    std::size_t frameBits    = (frameSize * subframeBits)
+                             + 2; // SF + EF
 
-    totalFrames = static_cast<std::size_t>(std::ceil(exactTotalFrames));
-
-    debug << "average transmission rate: " << averageTransmissionRate
-          << " data blocks per second"
-             "\ndata size: " << dataSize << " bits per data block"
-             "\nframe size: " << frameSize << " data blocks per frame"
-             "\naddress bits: " << addressBits << " bits per subframe"
-             "\ntime step: " << timeStep << " second(s)"
-             "\ntotal frames: " << totalFrames
-          << std::endl;
+    debug << "\nstats:"
+             "\n\taverage transmission rate: " << averageTransmissionRate
+                  << " data blocks per second"
+             "\n\tdata bits: " << dataBits << " bits per data block"
+             "\n\taddress bits: " << addressBits << " bits per subframe"
+             "\n\tsubframe bits: " << subframeBits << " bits"
+             "\n\tframe size: " << frameSize << " subframes per frame"
+             "\n\tframe bits: " << frameBits << " bits"
+                 " (" << frameSize << " subframes/frame * "
+                      << subframeBits << " bits/subframe + SF + EF)"
+             "\n\tframe time duration: " << timeStep << " second(s)"
+          << '\n' << std::endl;
 }
 
-double
+std::size_t
 StdmMux::readSources(std::istream &input,
                      std::ostream &debug)
 {
-    double totalAverageTransmissionRate = 0.0;
+    debug << "\nreading sources..." << std::endl;
+
+    std::size_t totalDataBlocks = 0;
     std::string sourceLine;
     while (std::getline(input, sourceLine)) {
         sources.emplace_back(sourceLine);
         const StdmSource &source = sources.back();
 
-        debug << "read source \"" << source.getName() << "\": ";
+        debug << "\tread source \"" << source.getName() << "\": ";
 
         if (source.empty()) {
             debug << "[NO DATA]" << std::endl;
@@ -66,14 +73,14 @@ StdmMux::readSources(std::istream &input,
         }
 
         unsigned long duration = source.getDataDuration();
-        std::size_t   size     = source.getDataSize();
+        std::size_t   bits     = source.getDataBits();
         if (timeStep != 0) {
             if (duration != timeStep) {
                 throw std::invalid_argument(
                     "sources have inconsistent data rates"
                 );
             }
-            if (size != dataSize) {
+            if (bits != dataBits) {
                 throw std::invalid_argument(
                     "sources have inconsistent data block sizes"
                 );
@@ -81,25 +88,26 @@ StdmMux::readSources(std::istream &input,
         } else {
             // initial pass
             timeStep = duration;
-            dataSize = size;
+            dataBits = bits;
         }
 
-        unsigned long sourceStartTime        = source.getStartTime();
-        unsigned long sourceEndTime          = source.getEndTime();
-        double sourceAverageTransmissionRate = source.averageTransmissionRate();
+        unsigned long sourceStartTime = source.getStartTime();
+        unsigned long sourceEndTime   = source.getEndTime();
 
         debug << "startTime="                 << sourceStartTime
               << ", endTime="                 << sourceEndTime
               << ", dataBlocks="              << source.size()
-              << ", averageTransmissionRate=" << sourceAverageTransmissionRate
               << std::endl;
+
+        totalDataBlocks += source.size();
 
         currentTime = std::min(currentTime, sourceStartTime);
         endTime     = std::max(endTime,     sourceEndTime);
-        totalAverageTransmissionRate += sourceAverageTransmissionRate;
     }
 
-    return totalAverageTransmissionRate;
+    debug << "read sources!" << std::endl;
+
+    return totalDataBlocks;
 }
 
 bool
@@ -107,43 +115,56 @@ StdmMux::writeFrame(std::ostream &output,
                     std::ostream &debug)
 {
     if ((currentTime >= endTime) && backlog.empty()) {
-        debug << "DONE!" << std::endl;
+        debug << "\nDONE!" << std::endl;
         checkForDataInSources(debug);
         return false;
     }
 
-    writeStartOfFrame("frame", '=', frame, totalFrames, currentTime, debug);
-    debug << currentTime << ": "
-          << backlog.size() << " data blocks in the backlog"
+    writeStartOfFrame("upcoming frame", '=', frame, debug);
+    debug << backlog.size() << " data block(s) in the backlog"
           << std::endl;
 
     updateBacklog();
 
-    writeStartOfFrame("frame", '=', frame, totalFrames, currentTime, output);
+    writeStartOfFrame("frame", '=', frame, output);
     output << "SF (1 bit)" << std::endl;
 
-    for (unsigned long subframe = 1; subframe <= frameSize; ++subframe) {
-        writeStartOfFrame("subframe", '-', subframe, frameSize, currentTime, output);
+    std::size_t busySubframes = writeSubframes(output);
 
-        unsigned long sourceAddress = 0;
-        std::string source = "NONE";
-        std::string data;
-
-        if (!backlog.empty()) {
-            const BacklogItem& item = backlog.top();
-            sourceAddress = item.source;
-            source        = sources[sourceAddress - 1].getName();
-            data          = item.data;
-            backlog.pop();
-        }
-
-        writeSubframe(sourceAddress, source, data, output);
-    }
+    debug << busySubframes << '/' << frameSize
+          << " subframes utilized"
+          << std::endl;
 
     output << "EF (1 bit)" << std::endl;
 
     ++frame;
     return true;
+}
+
+std::size_t
+StdmMux::writeSubframes(std::ostream &output)
+{
+    std::size_t busySubframes = 0;
+    for (unsigned long subframe = 1; subframe <= frameSize; ++subframe) {
+        writeStartOfFrame("subframe", '-', subframe, output);
+
+        unsigned long sourceAddress = 0;
+        std::string source          = "<NONE>";
+        std::string data            = "<ZERO-FILLED>";
+
+        if (!backlog.empty()) {
+            const BacklogItem& item = backlog.top();
+            sourceAddress = item.sourceAddress;
+            source        = sources[sourceAddress - 1].getName();
+            data          = item.data;
+            backlog.pop();
+            ++busySubframes;
+        }
+
+        writeSubframe(sourceAddress, source, data, output);
+    }
+
+    return busySubframes;
 }
 
 void
@@ -155,9 +176,9 @@ StdmMux::updateBacklog()
         std::string data = source.select(currentTime, nextTime);
         if (!data.empty()) {
             BacklogItem item;
-            item.source    = sourceAddress;
-            item.timestamp = currentTime;
-            item.data      = std::move(data);
+            item.sourceAddress = sourceAddress;
+            item.timestamp     = currentTime;
+            item.data          = std::move(data);
             backlog.emplace(std::move(item));
         }
         ++sourceAddress;
@@ -174,7 +195,7 @@ StdmMux::writeSubframe(unsigned long      sourceAddress,
 {
     output << "address: " << sourceAddress << '/' << source
                           << " (" << addressBits << " bits)"
-              "\ndata: \"" << data << "\" (" << dataSize << " bits)"
+              "\ndata: \"" << data << "\" (" << dataBits << " bits)"
            << std::endl;
 }
 
@@ -182,15 +203,14 @@ void
 StdmMux::writeStartOfFrame(const std::string &frameType,
                            char               lineChar,
                            unsigned long      number,
-                           unsigned long      total,
-                           unsigned long      currentTime,
                            std::ostream      &output)
 {
     static const std::size_t LINE_WIDTH = 80;
 
+    unsigned long endOfFrameTime = currentTime + timeStep;
     std::ostringstream textStream;
-    textStream << "start of " << frameType << ' ' << number << '/' << total
-               << " (time=" << currentTime << ')';
+    textStream << "start of " << frameType << ' ' << number
+               << " (time=" << currentTime << '-' << endOfFrameTime << ')';
     std::string text = textStream.str();
 
     std::size_t lengthLine       = 4;

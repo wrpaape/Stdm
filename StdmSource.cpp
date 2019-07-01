@@ -11,7 +11,7 @@ StdmSource::StdmSource(const std::string &inputLine)
     , cursor()
     , blocks()
     , dataDuration()
-    , dataSize()
+    , dataBits()
 {
     std::istringstream input(inputLine);
 
@@ -30,7 +30,7 @@ StdmSource::StdmSource(const std::string &inputLine)
             );
         }
         unsigned long duration = block.endTime - block.startTime;
-        std::size_t size = block.data.length()
+        std::size_t bits = block.data.length()
                          * std::numeric_limits<std::string::value_type>::digits;
         if (dataDuration != 0) {
             if (duration != dataDuration) {
@@ -39,7 +39,7 @@ StdmSource::StdmSource(const std::string &inputLine)
                      "time stamps"
                 );
             }
-            if (size != dataSize) {
+            if (bits != dataBits) {
                 throw std::invalid_argument(
                      "data blocks provided with multiple data sizes"
                 );
@@ -47,7 +47,7 @@ StdmSource::StdmSource(const std::string &inputLine)
         } else {
             // initial pass - set the data properties
             dataDuration = duration;
-            dataSize     = size;
+            dataBits     = bits;
         }
         prevEnd = block.endTime;
         blocks.emplace_back(std::move(block));
