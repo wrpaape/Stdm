@@ -66,23 +66,6 @@ StdmSource::getEndTime() const
     return blocks.empty() ? 0 : blocks.back().endTime;
 }
 
-double
-StdmSource::averageTransmissionRate() const
-{
-    if (blocks.empty()) {
-        return 0.0;
-    }
-
-    unsigned long totalTime   = 0;
-    std::size_t   totalLength = 0;
-    for (const DataBlock &block : blocks) {
-        totalTime   += (block.endTime - block.startTime);
-        totalLength += block.data.length();
-    }
-
-    return static_cast<double>(totalLength) / static_cast<double>(totalTime);
-}
-
 std::string
 StdmSource::select(unsigned long startTime,
                    unsigned long endTime)

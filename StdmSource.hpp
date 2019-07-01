@@ -5,9 +5,18 @@
 #include <vector>
 #include <istream>
 
+/**
+ * This class represents a non-constant stream of data described by a line of
+ * the following format:
+ *     <NAME>:<start1> <end1> <data1>,...,<startN> <endN> <dataN>
+ */
 class StdmSource
 {
 public:
+    /**
+     * @brief construct a StdmSource
+     * @param[in] inputLine the line specifying this source's data stream
+     */
     StdmSource(const std::string &inputLine);
 
     bool
@@ -31,9 +40,13 @@ public:
     unsigned long
     getEndTime() const;
 
-    double
-    averageTransmissionRate() const;
-
+    /**
+     * @brief poll this source for a data block
+     * @param[in] startTime the start of the poll
+     * @param[in] endTime   the end of the poll
+     * @return non-empty() data block if data is available during the requested
+     *     time interval
+     */
     std::string
     select(unsigned long startTime,
            unsigned long endTime);
